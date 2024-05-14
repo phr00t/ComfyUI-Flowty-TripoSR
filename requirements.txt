@@ -5,4 +5,6 @@ transformers==4.35.0
 trimesh==4.0.5
 huggingface-hub
 imageio[ffmpeg]
+xatlas==0.0.9
+moderngl==5.10.0
 scikit-image
