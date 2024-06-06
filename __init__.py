@@ -6,9 +6,10 @@ from folder_paths import get_filename_list, get_full_path, get_save_image_path, 
 from comfy.model_management import get_torch_device
 from tsr.system import TSR
 from PIL import Image
+from tsr.bake_texture import bake_texture
 import numpy as np
+import xatlas
 import torch
-
 
 def fill_background(image):
     image = np.array(image).astype(np.float32) / 255.0
@@ -65,17 +66,19 @@ class TripoSRSampler:
                 "reference_image": ("IMAGE",),
                 "geometry_resolution": ("INT", {"default": 256, "min": 128, "max": 12288}),
                 "threshold": ("FLOAT", {"default": 25.0, "min": 0.0, "step": 0.01}),
+                "bake_textures": ("BOOL", {"default": False}),
+                "texture_resolution": ("INT", {"default": 2048, "min": 128, "max": 4096}),
             },
             "optional": {
                 "reference_mask": ("MASK",)
             }
         }
 
-    RETURN_TYPES = ("MESH",)
+    RETURN_TYPES = ("MESH", "IMAGE")
     FUNCTION = "sample"
     CATEGORY = "Flowty TripoSR"
 
-    def sample(self, model, reference_image, geometry_resolution, threshold, reference_mask=None):
+    def sample(self, model, reference_image, geometry_resolution, threshold, bake_textures, texture_resolution, reference_mask=None):
         device = get_torch_device()
 
         if not torch.cuda.is_available():
@@ -95,7 +98,15 @@ class TripoSRSampler:
         image = image.convert('RGB')
         scene_codes = model([image], device)
         meshes = model.extract_mesh(scene_codes, resolution=geometry_resolution, threshold=threshold)
-        return ([meshes[0]],)
+        output_texture = None
+
+        if bake_textures:
+            bake_output = bake_texture(meshes[0], model, scene_codes[0], texture_resolution)
+            xatlas.export(out_mesh_path, meshes[0].vertices[bake_output["vmapping"]], bake_output["indices"],
+                          bake_output["uvs"], meshes[0].vertex_normals[bake_output["vmapping"]])
+            output_texture = Image.fromarray((bake_output["colors"] * 255.0).astype(np.uint8)).transpose(Image.FLIP_TOP_BOTTOM)
+
+        return [meshes[0]], output_texture
 
 
 class TripoSRViewer:
