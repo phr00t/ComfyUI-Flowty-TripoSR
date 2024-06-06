@@ -10,6 +10,7 @@ from tsr.bake_texture import bake_texture
 import numpy as np
 import xatlas
 import torch
+import torchvision.transforms as transforms
 
 def fill_background(image):
     image = np.array(image).astype(np.float32) / 255.0
@@ -66,7 +67,6 @@ class TripoSRSampler:
                 "reference_image": ("IMAGE",),
                 "geometry_resolution": ("INT", {"default": 256, "min": 128, "max": 12288}),
                 "threshold": ("FLOAT", {"default": 25.0, "min": 0.0, "step": 0.01}),
-                "bake_textures": ("BOOL", {"default": False}),
                 "texture_resolution": ("INT", {"default": 2048, "min": 128, "max": 4096}),
             },
             "optional": {
@@ -78,7 +78,7 @@ class TripoSRSampler:
     FUNCTION = "sample"
     CATEGORY = "Flowty TripoSR"
 
-    def sample(self, model, reference_image, geometry_resolution, threshold, bake_textures, texture_resolution, reference_mask=None):
+    def sample(self, model, reference_image, geometry_resolution, threshold, texture_resolution, reference_mask=None):
         device = get_torch_device()
 
         if not torch.cuda.is_available():
@@ -97,16 +97,19 @@ class TripoSRSampler:
             image = fill_background(image)
         image = image.convert('RGB')
         scene_codes = model([image], device)
-        meshes = model.extract_mesh(scene_codes, resolution=geometry_resolution, threshold=threshold)
-        output_texture = None
+        meshes = model.extract_mesh(scene_codes, True, resolution=geometry_resolution, threshold=threshold)
 
-        if bake_textures:
-            bake_output = bake_texture(meshes[0], model, scene_codes[0], texture_resolution)
-            xatlas.export(out_mesh_path, meshes[0].vertices[bake_output["vmapping"]], bake_output["indices"],
-                          bake_output["uvs"], meshes[0].vertex_normals[bake_output["vmapping"]])
-            output_texture = Image.fromarray((bake_output["colors"] * 255.0).astype(np.uint8)).transpose(Image.FLIP_TOP_BOTTOM)
+        full_output_folder, filename, counter, subfolder, filename_prefix = get_save_image_path("meshsave",
+                                                                                                get_output_directory())
+        file = f"{filename}_{counter:05}.uv_mapped.obj"
 
-        return [meshes[0]], output_texture
+        bake_output = bake_texture(meshes[0], model, scene_codes[0], texture_resolution)
+        xatlas.export(file, meshes[0].vertices[bake_output["vmapping"]], bake_output["indices"],
+                      bake_output["uvs"], meshes[0].vertex_normals[bake_output["vmapping"]])
+        i = Image.fromarray((bake_output["colors"] * 255.0).astype(np.uint8)).transpose(Image.FLIP_TOP_BOTTOM).convert("RGB")
+        image = np.array(i).astype(np.float32) / 255.0
+        image = torch.from_numpy(image)[None,]
+        return [meshes[0]], image
 
 
 class TripoSRViewer:

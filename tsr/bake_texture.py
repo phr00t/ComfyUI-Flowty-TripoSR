@@ -11,8 +11,8 @@ def make_atlas(mesh, texture_resolution, texture_padding):
     atlas.add_mesh(mesh.vertices, mesh.faces)
     options = xatlas.PackOptions()
     options.resolution = texture_resolution
-    options.padding = texture_padding
-    options.bilinear = True
+    #options.padding = texture_padding
+    #options.bilinear = True
     atlas.generate(pack_options=options)
     vmapping, indices, uvs = atlas[0]
     return {
@@ -142,7 +142,7 @@ def positions_to_colors(model, scene_code, positions_texture, texture_resolution
             positions,
             scene_code,
         )
-    rgb_f = queried_grid["color"].numpy().reshape(-1, 3)
+    rgb_f = queried_grid["color"].cpu().numpy().reshape(-1, 3)
     rgba_f = np.insert(rgb_f, 3, positions_texture.reshape(-1, 4)[:, -1], axis=1)
     rgba_f[rgba_f[:, -1] == 0.0] = [0, 0, 0, 0]
     return rgba_f.reshape(texture_resolution, texture_resolution, 4)

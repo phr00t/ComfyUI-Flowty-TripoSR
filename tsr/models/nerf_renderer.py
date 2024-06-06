@@ -59,15 +59,15 @@ class TriplaneNeRFRenderer(BaseModule):
                 dim=-3,
             )
             out: torch.Tensor = F.grid_sample(
-                rearrange(triplane, "Np Cp Hp Wp -> Np Cp Hp Wp", Np=3),
-                rearrange(indices2D, "Np N Nd -> Np () N Nd", Np=3),
+                rearrange(triplane, "Np Cp Hp Wp -> Np Cp Hp Wp", Np=3).cuda(),
+                rearrange(indices2D, "Np N Nd -> Np () N Nd", Np=3).cuda(),
                 align_corners=False,
                 mode="bilinear",
             )
             if self.cfg.feature_reduction == "concat":
-                out = rearrange(out, "Np Cp () N -> N (Np Cp)", Np=3)
+                out = rearrange(out, "Np Cp () N -> N (Np Cp)", Np=3).cuda()
             elif self.cfg.feature_reduction == "mean":
-                out = reduce(out, "Np Cp () N -> N Cp", Np=3, reduction="mean")
+                out = reduce(out, "Np Cp () N -> N Cp", Np=3, reduction="mean").cuda()
             else:
                 raise NotImplementedError
 
