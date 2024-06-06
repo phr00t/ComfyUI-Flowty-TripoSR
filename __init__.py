@@ -67,7 +67,7 @@ class TripoSRSampler:
                 "reference_image": ("IMAGE",),
                 "geometry_resolution": ("INT", {"default": 256, "min": 128, "max": 12288}),
                 "threshold": ("FLOAT", {"default": 25.0, "min": 0.0, "step": 0.01}),
-                "texture_resolution": ("INT", {"default": 2048, "min": 128, "max": 4096}),
+                "texture_resolution": ("INT", {"default": 2048, "min": 256, "max": 4096}),
             },
             "optional": {
                 "reference_mask": ("MASK",)
@@ -101,7 +101,7 @@ class TripoSRSampler:
 
         full_output_folder, filename, counter, subfolder, filename_prefix = get_save_image_path("meshsave",
                                                                                                 get_output_directory())
-        file = f"{filename}_{counter:05}.uv_mapped.obj"
+        file = f"{full_output_folder}/{filename}_{counter:05}.uv_mapped.obj"
 
         bake_output = bake_texture(meshes[0], model, scene_codes[0], texture_resolution)
         xatlas.export(file, meshes[0].vertices[bake_output["vmapping"]], bake_output["indices"],
